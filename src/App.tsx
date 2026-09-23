@@ -3,10 +3,12 @@ import { AttributionControl, Map as MapLibreMap, NavigationControl } from 'mapli
 import 'maplibre-gl/dist/maplibre-gl.css'
 import {
   Activity, ArrowRight, BarChart3, Braces, Check, ChevronRight, CircleDot,
-  Clock3, Compass, Copy, Database, GitBranch, Globe2, KeyRound, Layers3,
-  MapPin, Menu, Radar, Route, Search, Sparkles, X, Zap,
+  Clock3, Compass, Copy, Database, ExternalLink, GitBranch, Globe2, KeyRound, Layers3,
+  LoaderCircle, MapPin, Menu, Radar, Route, Search, Sparkles, X, Zap,
 } from 'lucide-react'
 import './App.css'
+import './live.css'
+import { fetchNearby, type Place } from './nearbyApi'
 
 type City = { name: string; country: string; coords: [number, number]; score: number; latency: number; requests: string }
 
@@ -85,6 +87,24 @@ function App() {
   const [copied, setCopied] = useState(false)
   const [mobile, setMobile] = useState(false)
   const [activeLayer, setActiveLayer] = useState('Places')
+  const [apiResult, setApiResult] = useState<{ key: string; places: Place[]; error: string }>({ key: '', places: [], error: '' })
+
+  const apiCategory = ({ Places: 'all', Food: 'food', Parks: 'parks', Transit: 'transit' } as Record<string, string>)[activeLayer] || 'all'
+  const queryKey = `${city.name}:${apiCategory}`
+  const places = apiResult.key === queryKey ? apiResult.places : []
+  const apiLoading = apiResult.key !== queryKey
+  const apiError = apiResult.key === queryKey ? apiResult.error : ''
+  const apiUrl = `/api/nearby?lat=${city.coords[1]}&lon=${city.coords[0]}&category=${apiCategory}&radius=1200&limit=20`
+
+  useEffect(() => {
+    const controller = new AbortController()
+    fetchNearby(city.coords[1], city.coords[0], apiCategory, controller.signal)
+      .then((result) => setApiResult({ key: queryKey, places: result.places, error: '' }))
+      .catch((error) => {
+        if (error.name !== 'AbortError') setApiResult({ key: queryKey, places: [], error: error.message })
+      })
+    return () => controller.abort()
+  }, [city, apiCategory, queryKey])
 
   const copyCode = async () => {
     await navigator.clipboard.writeText(code)
@@ -94,15 +114,17 @@ function App() {
 
   return (
     <main>
-      <nav>
-        <a className="brand" href="#top"><span className="brand-mark"><Globe2 size={20} /></span>atlascope</a>
-        <div className="nav-links">
-          <a href="#platform">Platform</a><a href="#playground">Playground</a><a href="#intel">Market intel</a><a href="#build">Build</a>
-        </div>
-        <div className="nav-actions"><a className="github" href="https://github.com/itsmikepowers/mapforge-studio" target="_blank"><GitBranch size={17} /> GitHub</a><a className="button small" href="#playground">Explore free <ArrowRight size={15} /></a></div>
-        <button className="menu" onClick={() => setMobile(!mobile)} aria-label="Toggle menu">{mobile ? <X /> : <Menu />}</button>
-      </nav>
-      {mobile && <div className="mobile-nav"><a href="#platform">Platform</a><a href="#playground">Playground</a><a href="#intel">Market intel</a><a href="#build">Build</a></div>}
+      <header className="site-header">
+        <nav>
+          <a className="brand" href="#top"><span className="brand-mark"><Globe2 size={20} /></span>atlascope</a>
+          <div className="nav-links">
+            <a href="#platform">Platform</a><a href="#playground">Playground</a><a href="#intel">Market intel</a><a href="#build">Build</a>
+          </div>
+          <div className="nav-actions"><a className="github" href="https://github.com/itsmikepowers/mapforge-studio" target="_blank"><GitBranch size={17} /> GitHub</a><a className="button small" href="#playground">Explore free <ArrowRight size={15} /></a></div>
+          <button className="menu" onClick={() => setMobile(!mobile)} aria-expanded={mobile} aria-label="Toggle menu">{mobile ? <X /> : <Menu />}</button>
+        </nav>
+        {mobile && <div className="mobile-nav"><a onClick={() => setMobile(false)} href="#platform">Platform</a><a onClick={() => setMobile(false)} href="#playground">Playground</a><a onClick={() => setMobile(false)} href="#intel">Market intel</a><a onClick={() => setMobile(false)} href="#build">Build</a><a onClick={() => setMobile(false)} href="https://github.com/itsmikepowers/mapforge-studio">GitHub</a></div>}
+      </header>
 
       <section id="top" className="hero-section">
         <div className="orb orb-one"/><div className="orb orb-two"/>
@@ -134,19 +156,22 @@ function App() {
             <label>Explore layer</label>
             <div className="layers">
               {[
-                ['Places', MapPin], ['Walkability', Route], ['Freshness', Clock3], ['Coverage', Layers3]
+                ['Places', MapPin], ['Food', Clock3], ['Parks', Layers3], ['Transit', Route]
               ].map(([name, Icon]) => <button key={name as string} onClick={() => setActiveLayer(name as string)} className={activeLayer === name ? 'active' : ''}><Icon size={16}/>{name as string}<span>{activeLayer === name && <Check size={13}/>}</span></button>)}
             </div>
-            <div className="query-card"><span>QUERY COST</span><strong>$0.0004</strong><small>84 features · 12 KB</small></div>
+            <div className="query-card"><span>LIVE API QUERY</span><strong>{apiLoading ? 'Running…' : `${places.length} places`}</strong><small>Free · OpenStreetMap sample · Sep 2026</small></div>
           </div>
           <div className="lab-content">
             <div className="radar-visual">
               <div className="radar-lines"/><div className="radar-pulse"><Compass size={32}/></div>
-              {['Cafe','Park','Market','Transit','Gym'].map((x,i)=><span className={`poi poi-${i+1}`} key={x}><CircleDot size={11}/>{x}</span>)}
-              <div className="radar-caption"><small>{activeLayer.toUpperCase()} SCORE</small><strong>{city.score}</strong><span>Top {100-city.score}% of mapped cities</span></div>
+              {places.slice(0, 5).map((place,i)=><a className={`poi poi-${i+1}`} href={place.osmUrl} target="_blank" key={place.id}><CircleDot size={11}/>{place.name}</a>)}
+              {apiLoading && <div className="api-state"><LoaderCircle className="spin"/>Querying live OpenStreetMap data…</div>}
+              {apiError && <div className="api-state error">{apiError}</div>}
+              <div className="radar-caption"><small>LIVE {activeLayer.toUpperCase()} RESULTS</small><strong>{apiLoading ? '—' : places.length}</strong><span>within 1.2 km of {city.name}</span></div>
             </div>
             <div className="breakdown">
-              {[['Food & drink',96,'+4'],['Parks',78,'+12'],['Transit',91,'+2'],['Daily needs',84,'+7']].map(([name,value,delta])=><div key={name as string}><span>{name}</span><div className="bar"><i style={{width:`${value}%`}}/></div><strong>{value}</strong><small>{delta}</small></div>)}
+              <div className="api-endpoint"><span>TEST THE API</span><code>{apiUrl}</code><a href={apiUrl} target="_blank">Open JSON <ExternalLink size={12}/></a></div>
+              <div className="place-list">{places.slice(0, 6).map((place) => <a href={place.osmUrl} target="_blank" key={place.id}><div><strong>{place.name}</strong><small>{place.category.replaceAll('_', ' ')}</small></div><span>{place.distanceMeters}m</span></a>)}</div>
             </div>
           </div>
         </div>
