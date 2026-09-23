@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import handler from './nearby'
+import handler from '../api/nearby'
 
 afterEach(() => vi.unstubAllGlobals())
 

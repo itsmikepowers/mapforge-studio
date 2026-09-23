@@ -43,6 +43,6 @@ for row in rows:
     key=(row['id'],row['group'])
     if key not in seen: clean.append(row); seen.add(key)
 out = 'export default ' + json.dumps(clean, ensure_ascii=False, separators=(',', ':')) + ' as const\n'
-Path('api/data/places.ts').parent.mkdir(parents=True, exist_ok=True)
-Path('api/data/places.ts').write_text(out)
+Path('server/data/places.ts').parent.mkdir(parents=True, exist_ok=True)
+Path('server/data/places.ts').write_text(out)
 print('TOTAL', len(clean))

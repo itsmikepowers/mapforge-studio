@@ -1,5 +1,5 @@
-import placesData from './data/places'
-import { filterPlaces, parseNearbyParams } from './lib/nearby'
+import placesData from '../server/data/places'
+import { filterPlaces, parseNearbyParams } from '../server/nearby'
 
 type RequestLike = { method?: string; url?: string }
 type ResponseLike = {

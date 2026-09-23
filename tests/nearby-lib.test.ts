@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildNominatimUrl, buildOverpassQuery, filterPlaces, normalizeCategory, parseNearbyParams, toPlace, toPlaceFromNominatim } from './nearby'
+import { buildNominatimUrl, buildOverpassQuery, filterPlaces, normalizeCategory, parseNearbyParams, toPlace, toPlaceFromNominatim } from '../server/nearby'
 
 describe('parseNearbyParams', () => {
   it('accepts valid coordinates, category and radius', () => {
